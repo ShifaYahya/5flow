@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FiveFlow 3D Interactive Ecosystem</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            box-sizing: border-box;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(51, 65, 85, 0.8);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.8);
+        }
+        /* Glow Utilities */
+        .glow-green { box-shadow: 0 0 25px rgba(16, 185, 129, 0.4); }
+        .glow-amber { box-shadow: 0 0 25px rgba(245, 158, 11, 0.4); }
+        .glow-purple { box-shadow: 0 0 25px rgba(168, 85, 247, 0.4); }
+        .glow-cyan { box-shadow: 0 0 25px rgba(59, 130, 246, 0.4); }
+
+        /* Timeline block indicator */
+        .timeline-line {
+            position: absolute;
+            left: 19px;
+            top: 24px;
+            bottom: 0;
+            width: 2px;
+            background: rgba(51, 65, 85, 0.6);
+        }
+
+        canvas {
+            display: block;
+            outline: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen overflow-x-hidden flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+    <!-- Top Navigation Header -->
+    <header class="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-40 px-4 lg:px-8 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-slate-800 border border-amber-500/40 p-0.5 flex items-center justify-center shadow-lg shadow-amber-500/10">
+                <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
+                    <span class="text-amber-400 font-extrabold text-lg">5</span>
+                </div>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-lg font-bold tracking-tight text-white">FiveFlow <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold">AI Planner & 3D Hardware</span></h1>
+                </div>
+                <p class="text-[11px] text-slate-400 hidden sm:block">Speak your mind. Find your flow. • Real-Time Adaptive AI Day Planner</p>
+            </div>
+        </div>
+
+        <!-- Mode Pills -->
+        <div class="hidden md:flex items-center space-x-1.5 bg-slate-900/90 p-1.5 rounded-xl border border-slate-800">
+            <button onclick="setSystemMode('focus')" id="nav-btn-focus" class="nav-mode-btn text-xs font-semibold px-3 py-1.5 rounded-lg transition-all bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+                <i class="fa-solid fa-brain text-emerald-400"></i> Focus
+            </button>
+            <button onclick="setSystemMode('prayer_break')" id="nav-btn-prayer_break" class="nav-mode-btn text-xs font-medium text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+                <i class="fa-solid fa-kaaba text-amber-400"></i> Prayer Break
+            </button>
+            <button onclick="setSystemMode('adhkar')" id="nav-btn-adhkar" class="nav-mode-btn text-xs font-medium text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+                <i class="fa-solid fa-book-open text-purple-400"></i> Adhkar
+            </button>
+            <button onclick="setSystemMode('prayer_reminder')" id="nav-btn-prayer_reminder" class="nav-mode-btn text-xs font-medium text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+                <i class="fa-solid fa-mosque text-blue-400"></i> Prayer Reminder
+            </button>
+        </div>
+
+        <div class="flex items-center space-x-2">
+            <button id="speech-toggle-btn" onclick="toggleVoiceSpeech()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 flex items-center gap-2 transition">
+                <i id="speech-icon" class="fa-solid fa-volume-high text-emerald-400"></i>
+                <span id="speech-status-text" class="hidden sm:inline">Voice On</span>
+            </button>
+            <button onclick="resetCameraView()" class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs transition" title="Reset Camera View">
+                <i class="fa-solid fa-arrows-to-eye"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Split Grid -->
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 relative">
+
+        <!-- 3D Viewport Column (Left / Center) -->
+        <div class="lg:col-span-7 xl:col-span-7 relative h-[45vh] lg:h-[calc(100vh-57px)] bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 overflow-hidden flex flex-col">
+            <!-- 3D Canvas Container -->
+            <div id="canvas-container" class="w-full h-full cursor-grab active:cursor-grabbing"></div>
+
+            <!-- Floating 3D Tool Overlay Controls -->
+            <div class="absolute bottom-4 left-4 right-4 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
+                <!-- Hint / Status -->
+                <div class="pointer-events-auto bg-slate-900/80 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-800/80 text-xs text-slate-300 flex items-center gap-2 shadow-lg">
+                    <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                    <span>Click <b>Raspberry Hardware</b> or <b>Laptop Display</b> to toggle modes</span>
+                </div>
+
+                <!-- Camera Angle Presets -->
+                <div class="pointer-events-auto flex items-center gap-1.5 bg-slate-900/80 backdrop-blur-md p-1.5 rounded-xl border border-slate-800/80 shadow-lg">
+                    <span class="text-[10px] text-slate-400 px-2 font-mono uppercase">Views:</span>
+                    <button onclick="setCameraPreset('isometric')" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition">Overview</button>
+                    <button onclick="setCameraPreset('device')" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 font-medium transition">5Flow Hardware</button>
+                    <button onclick="setCameraPreset('laptop')" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-400 font-medium transition">Laptop Screen</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Full AI Day Planner Dashboard (Right Panel) -->
+        <div class="lg:col-span-5 xl:col-span-5 bg-slate-900/95 border-t lg:border-t-0 lg:border-l border-slate-800 p-4 lg:p-6 flex flex-col justify-between space-y-4 overflow-y-auto max-h-[calc(100vh-57px)]">
+            
+            <!-- AI Brain-Dump Voice & Text Input Banner -->
+            <div id="device-card-container" class="rounded-2xl p-4 bg-slate-950/90 border border-emerald-500/30 glow-green transition-all duration-500 relative">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-800/80 mb-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i>
+                        <span class="text-xs font-bold text-slate-200">AI Adaptive Day Planner</span>
+                    </div>
+                    <span id="active-mode-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                        <span id="badge-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                        <span id="badge-text">FOCUS ACTIVE</span>
+                    </span>
+                </div>
+
+                <!-- Input Interface: Voice & Type -->
+                <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                        <input id="text-brain-dump-input" type="text" placeholder="Brain-dump tasks (e.g. 'Study 2h, Gym 1h, Doctor at 4pm')" class="w-full bg-slate-900 border border-slate-700 focus:border-amber-400 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 outline-none transition" onkeydown="if(event.key==='Enter') submitTextBrainDump()" />
+                        <button onclick="submitTextBrainDump()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-4 py-2.5 rounded-xl text-xs transition flex items-center gap-1.5 shrink-0 shadow-lg shadow-amber-500/10">
+                            <span>Plan</span> <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button id="start-voice-plan-btn" onclick="toggleVoicePlannerListening()" class="flex-1 bg-gradient-to-r from-emerald-500 via-teal-600 to-indigo-600 hover:from-emerald-400 hover:to-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-md">
+                            <i id="mic-icon" class="fa-solid fa-microphone"></i>
+                            <span id="mic-btn-label">🎙️ Speak Brain-Dump</span>
+                        </button>
+                        
+                        <button onclick="simulateDemoBrainDump()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 rounded-xl text-[11px] font-medium transition shrink-0">
+                            <i class="fa-solid fa-rotate text-amber-400"></i> Test Reshuffle
+                        </button>
+                    </div>
+
+                    <div id="speech-transcript-box" class="hidden text-[11px] bg-slate-900 border border-indigo-500/40 rounded-xl p-2.5 text-indigo-200 italic font-mono leading-relaxed">
+                        "Listening..."
+                    </div>
+                </div>
+
+                <!-- Hardware Status Mini Widget -->
+                <div class="mt-3 bg-black/80 rounded-xl p-2.5 border border-slate-800/80 flex items-center justify-between text-xs font-mono">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span id="oled-title" class="text-emerald-400 font-bold">FOCUS TIMER</span>
+                        <span id="oled-timer" class="text-white font-bold">25:00</span>
+                    </div>
+                    <span id="oled-sub" class="text-[10px] text-slate-400 truncate max-w-[150px]">Timer on</span>
+                </div>
+            </div>
+
+            <!-- Manual Task Creator Accordion -->
+            <div class="bg-slate-950/70 border border-slate-800/80 rounded-2xl p-3.5 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                        <i class="fa-solid fa-plus-circle text-indigo-400"></i> Add Task Manually
+                    </span>
+                    <span class="text-[10px] font-mono text-slate-500">Instant Sync</span>
+                </div>
+                <div class="grid grid-cols-12 gap-2 text-xs">
+                    <input id="new-task-time" type="text" placeholder="09:00" class="col-span-3 bg-slate-900 border border-slate-700/80 rounded-xl px-2.5 py-1.5 text-slate-200 outline-none focus:border-indigo-500 font-mono text-[11px]" />
+                    <input id="new-task-title" type="text" placeholder="Task name..." class="col-span-6 bg-slate-900 border border-slate-700/80 rounded-xl px-2.5 py-1.5 text-slate-200 outline-none focus:border-indigo-500 text-[11px]" />
+                    <input id="new-task-duration" type="text" placeholder="45m" class="col-span-3 bg-slate-900 border border-slate-700/80 rounded-xl px-2.5 py-1.5 text-slate-200 outline-none focus:border-indigo-500 font-mono text-[11px]" />
+                </div>
+                <div class="flex items-center justify-between pt-1">
+                    <label class="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer">
+                        <input id="new-task-fixed" type="checkbox" class="rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-0">
+                        <span>Fixed Commitment (Non-negotiable)</span>
+                    </label>
+                    <button onclick="addNewTaskManual()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1 rounded-xl text-[11px] transition">
+                        Add Task
+                    </button>
+                </div>
+            </div>
+
+            <!-- Interactive Timeline Schedule (Main Planner View) -->
+            <div class="bg-slate-950/80 rounded-2xl p-4 border border-slate-800 flex-1 flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-xs font-bold text-slate-200 flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-emerald-400"></i> Live Daily Schedule
+                    </h3>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800" id="task-count-badge">4 Tasks</span>
+                        <button onclick="clearSchedule()" class="text-[10px] text-slate-500 hover:text-red-400 transition" title="Clear All">Clear</button>
+                    </div>
+                </div>
+
+                <!-- Interactive Schedule List -->
+                <div id="schedule-list" class="space-y-2.5 overflow-y-auto max-h-[260px] pr-1">
+                    <!-- Dynamic rendering via JS -->
+                </div>
+            </div>
+
+            <!-- Interactive Mode Switches & Hardware Color Previews -->
+            <div class="space-y-1.5">
+                <div class="text-[11px] font-mono uppercase text-slate-500 flex justify-between">
+                    <span>Hardware Aura Mode</span>
+                    <span>4 Colors</span>
+                </div>
+                <div class="grid grid-cols-4 gap-1.5">
+                    <button onclick="setSystemMode('focus')" class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-emerald-500/30 text-center transition">
+                        <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 mx-auto mb-1"></div>
+                        <div class="text-[10px] font-bold text-slate-200">Focus</div>
+                    </button>
+
+                    <button onclick="setSystemMode('prayer_break')" class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-amber-500/30 text-center transition">
+                        <div class="w-2.5 h-2.5 rounded-full bg-amber-400 mx-auto mb-1"></div>
+                        <div class="text-[10px] font-bold text-slate-200">Prayer</div>
+                    </button>
+
+                    <button onclick="setSystemMode('adhkar')" class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-purple-500/30 text-center transition">
+                        <div class="w-2.5 h-2.5 rounded-full bg-purple-400 mx-auto mb-1"></div>
+                        <div class="text-[10px] font-bold text-slate-200">Adhkar</div>
+                    </button>
+
+                    <button onclick="setSystemMode('prayer_reminder')" class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-blue-500/30 text-center transition">
+                        <div class="w-2.5 h-2.5 rounded-full bg-blue-400 mx-auto mb-1"></div>
+                        <div class="text-[10px] font-bold text-slate-200">Reminder</div>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        /* =========================================================================
+           STATE & CONFIGURATION
+           ========================================================================= */
+        const APP_STATE = {
+            currentMode: 'focus', 
+            speechEnabled: true,
+            isListening: false,
+            ledColorHex: 0x10b981, // Green default
+            schedule: [
+                { id: 1, time: '09:00', task: 'Study & Prototype', duration: '90m', status: 'active', fixed: false },
+                { id: 2, time: '11:00', task: 'Groceries & Break', duration: '30m', status: 'pending', fixed: false },
+                { id: 3, time: '12:30', task: 'Swimming Session', duration: '60m', status: 'pending', fixed: false },
+                { id: 4, time: '16:00', task: 'Nail / Doctor Appointment', duration: '45m', status: 'pending', fixed: true }
+            ]
+        };
+
+        const MODES = {
+            focus: {
+                name: 'Focus Mode',
+                badgeText: 'FOCUS ACTIVE',
+                badgeBg: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+                colorHex: 0x10b981, // Green
+                cardBorder: 'border-emerald-500/30',
+                cardGlow: 'glow-green',
+                title: 'FOCUS TIMER',
+                timer: '25:00',
+                sub: 'Timer on • Distractions off',
+                speech: 'Focus mode active. Timer started for 25 minutes.'
+            },
+            prayer_break: {
+                name: 'Prayer Break',
+                badgeText: 'PRAYER BREAK',
+                badgeBg: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+                colorHex: 0xf59e0b, // Yellow/Gold
+                cardBorder: 'border-amber-500/30',
+                cardGlow: 'glow-amber',
+                title: 'PRAYER BREAK',
+                timer: 'Screen Locked',
+                sub: 'Take a spiritual break • Prayer countdown',
+                speech: 'Prayer break active. Screen locked. Time for prayer.'
+            },
+            adhkar: {
+                name: 'Adhkar Display',
+                badgeText: 'ADHKAR DISPLAY',
+                badgeBg: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+                colorHex: 0xa855f7, // Purple
+                cardBorder: 'border-purple-500/30',
+                cardGlow: 'glow-purple',
+                title: 'REMEMBRANCE',
+                timer: 'SubhanAllah',
+                sub: 'Morning & Evening Reminder Cards',
+                speech: 'Adhkar display mode active.'
+            },
+            prayer_reminder: {
+                name: 'Prayer Reminder',
+                badgeText: 'PRAYER REMINDER',
+                badgeBg: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                colorHex: 0x3b82f6, // Blue
+                cardBorder: 'border-blue-500/30',
+                cardGlow: 'glow-cyan',
+                title: 'NEXT PRAYER',
+                timer: 'Asr in 42m',
+                sub: 'Friday Surah Al-Kahf Prompt & Audio',
+                speech: 'Prayer reminder mode. Asr prayer is in 42 minutes.'
+            }
+        };
+
+        /* =========================================================================
+           MANUAL PLANNER MANAGEMENT FUNCTIONS
+           ========================================================================= */
+        function toggleTaskStatus(id) {
+            const task = APP_STATE.schedule.find(t => t.id === id);
+            if (!task) return;
+            if (task.status === 'completed') {
+                task.status = 'pending';
+            } else if (task.status === 'pending') {
+                task.status = 'active';
+            } else {
+                task.status = 'completed';
+            }
+            updateLaptopScreenCanvas();
+            renderScheduleUI();
+        }
+
+        function deleteTask(id) {
+            APP_STATE.schedule = APP_STATE.schedule.filter(t => t.id !== id);
+            updateLaptopScreenCanvas();
+            renderScheduleUI();
+        }
+
+        function addNewTaskManual() {
+            const timeEl = document.getElementById('new-task-time');
+            const titleEl = document.getElementById('new-task-title');
+            const durationEl = document.getElementById('new-task-duration');
+            const fixedEl = document.getElementById('new-task-fixed');
+
+            const time = timeEl.value.trim() || '14:00';
+            const title = titleEl.value.trim() || 'New Focus Task';
+            const duration = durationEl.value.trim() || '45m';
+            const fixed = fixedEl.checked;
+
+            APP_STATE.schedule.push({
+                id: Date.now(),
+                time: time,
+                task: title,
+                duration: duration,
+                status: 'pending',
+                fixed: fixed
+            });
+
+            // Clear inputs
+            timeEl.value = ''; titleEl.value = ''; durationEl.value = ''; fixedEl.checked = false;
+
+            updateLaptopScreenCanvas();
+            renderScheduleUI();
+            speakMessage(`Added task ${title} to your schedule.`);
+        }
+
+        function clearSchedule() {
+            APP_STATE.schedule = [];
+            updateLaptopScreenCanvas();
+            renderScheduleUI();
+        }
+
+        /* =========================================================================
+           THREE.JS 3D SCENE SETUP & CABLE CONNECTION
+           ========================================================================= */
+        let scene, camera, renderer, controls;
+        let deviceMeshGroup, laptopMeshGroup, ledStripMesh, ledStripLight, screenCanvas, screenTexture, screenContext;
+        let raycaster, mouse;
+
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x080b14);
+            scene.fog = new THREE.FogExp2(0x080b14, 0.032);
+
+            camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+            camera.position.set(0, 4.2, 7.2);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.15;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 - 0.05;
+            controls.minDistance = 3;
+            controls.maxDistance = 14;
+            controls.target.set(0, 0.8, 0);
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            setupLighting();
+            buildDeskEnvironment();
+            buildInteractiveLaptop();
+            buildFiveFlowHardwareDevice();
+            buildUSBConnectionCable();
+
+            window.addEventListener('resize', onWindowResize);
+            renderer.domElement.addEventListener('pointerdown', onCanvasClick);
+
+            animate();
+        }
+
+        function setupLighting() {
+            const ambientLight = new THREE.AmbientLight(0x475569, 1.8);
+            scene.add(ambientLight);
+
+            const keyLight = new THREE.DirectionalLight(0xfff7ed, 2.0); // Warm desk light
+            keyLight.position.set(5, 10, 5);
+            keyLight.castShadow = true;
+            keyLight.shadow.mapSize.width = 2048;
+            keyLight.shadow.mapSize.height = 2048;
+            scene.add(keyLight);
+
+            const rimLight = new THREE.DirectionalLight(0x3b82f6, 1.2);
+            rimLight.position.set(-5, 6, -5);
+            scene.add(rimLight);
+        }
+
+        /* Warm Wooden Aesthetic Desk Surface & Blackish-Gray Mat */
+        function buildDeskEnvironment() {
+            const woodCanvas = document.createElement('canvas');
+            woodCanvas.width = 1024; woodCanvas.height = 1024;
+            const wCtx = woodCanvas.getContext('2d');
+            
+            wCtx.fillStyle = '#3a2312'; wCtx.fillRect(0, 0, 1024, 1024);
+            
+            for (let i = 0; i < 600; i++) {
+                wCtx.fillStyle = i % 2 === 0 ? 'rgba(74, 44, 23, 0.25)' : 'rgba(38, 22, 11, 0.3)';
+                const y = Math.random() * 1024;
+                const h = Math.random() * 8 + 2;
+                wCtx.fillRect(0, y, 1024, h);
+            }
+
+            const woodTexture = new THREE.CanvasTexture(woodCanvas);
+            woodTexture.wrapS = THREE.RepeatWrapping; woodTexture.wrapT = THREE.RepeatWrapping;
+            woodTexture.repeat.set(2, 2);
+
+            const deskGeo = new THREE.BoxGeometry(16, 0.4, 10);
+            const deskMat = new THREE.MeshStandardMaterial({
+                map: woodTexture,
+                roughness: 0.45,
+                metalness: 0.05
+            });
+            const desk = new THREE.Mesh(deskGeo, deskMat);
+            desk.position.set(0, -0.2, 0);
+            desk.receiveShadow = true;
+            scene.add(desk);
+
+            // Blackish-Gray Charcoal Desk Mat
+            const matGeo = new THREE.BoxGeometry(11, 0.02, 6);
+            const matMaterial = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.9, metalness: 0.1 });
+            const deskMatMesh = new THREE.Mesh(matGeo, matMaterial);
+            deskMatMesh.position.set(-0.5, 0.01, 0.5);
+            deskMatMesh.receiveShadow = true;
+            scene.add(deskMatMesh);
+        }
+
+        /* High Detail Laptop with Clear Keyboard & Keycaps */
+        function buildInteractiveLaptop() {
+            laptopMeshGroup = new THREE.Group();
+
+            const baseGeo = new THREE.BoxGeometry(3.6, 0.12, 2.4);
+            const metallicMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.25, metalness: 0.85 });
+            const laptopBase = new THREE.Mesh(baseGeo, metallicMat);
+            laptopBase.position.set(-1.8, 0.06, 0.5);
+            laptopBase.castShadow = true;
+            laptopBase.receiveShadow = true;
+            laptopMeshGroup.add(laptopBase);
+
+            // Detailed Keyboard Recess Bed
+            const kbBedGeo = new THREE.BoxGeometry(3.35, 0.012, 1.35);
+            const kbBedMat = new THREE.MeshStandardMaterial({ color: 0x020617, roughness: 0.9 });
+            const keyboardBed = new THREE.Mesh(kbBedGeo, kbBedMat);
+            keyboardBed.position.set(-1.8, 0.121, 0.2);
+            laptopMeshGroup.add(keyboardBed);
+
+            // Render Distinct Keycaps
+            const keyRows = 5, keyCols = 14;
+            const keyCapMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35, metalness: 0.2 });
+
+            const startX = -1.8 - (keyCols * 0.23) / 2 + 0.115;
+            const startZ = 0.2 - (keyRows * 0.23) / 2 + 0.115;
+
+            for (let r = 0; r < keyRows; r++) {
+                for (let c = 0; c < keyCols; c++) {
+                    if (r === 4 && c >= 4 && c <= 8) {
+                        if (c === 4) {
+                            const spaceGeo = new THREE.BoxGeometry(1.1, 0.035, 0.21);
+                            const spaceMesh = new THREE.Mesh(spaceGeo, keyCapMat);
+                            spaceMesh.position.set(startX + 6 * 0.23, 0.138, startZ + r * 0.23);
+                            laptopMeshGroup.add(spaceMesh);
+                        }
+                        continue;
+                    }
+                    const keyGeo = new THREE.BoxGeometry(0.21, 0.035, 0.21);
+                    const keyMesh = new THREE.Mesh(keyGeo, keyCapMat);
+                    keyMesh.position.set(startX + c * 0.23, 0.138, startZ + r * 0.23);
+                    laptopMeshGroup.add(keyMesh);
+                }
+            }
+
+            // Trackpad
+            const padGeo = new THREE.BoxGeometry(1.2, 0.01, 0.8);
+            const padMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.2, metalness: 0.7 });
+            const trackpad = new THREE.Mesh(padGeo, padMat);
+            trackpad.position.set(-1.8, 0.125, 1.25);
+            laptopMeshGroup.add(trackpad);
+
+            // Dynamic Interactive Canvas Screen
+            screenCanvas = document.createElement('canvas');
+            screenCanvas.width = 1024;
+            screenCanvas.height = 680;
+            screenContext = screenCanvas.getContext('2d');
+            updateLaptopScreenCanvas();
+
+            screenTexture = new THREE.CanvasTexture(screenCanvas);
+            screenTexture.anisotropy = 16;
+
+            const screenLidGroup = new THREE.Group();
+            screenLidGroup.position.set(-1.8, 0.12, -0.65);
+
+            const frameGeo = new THREE.BoxGeometry(3.6, 2.3, 0.08);
+            const screenFrame = new THREE.Mesh(frameGeo, metallicMat);
+            screenFrame.position.set(0, 1.15, 0);
+            screenFrame.castShadow = true;
+            screenLidGroup.add(screenFrame);
+
+            const displayGeo = new THREE.PlaneGeometry(3.4, 2.1);
+            const displayMat = new THREE.MeshBasicMaterial({ map: screenTexture });
+            const screenDisplay = new THREE.Mesh(displayGeo, displayMat);
+            screenDisplay.position.set(0, 1.15, 0.045);
+            screenDisplay.name = "interactive_screen";
+            screenLidGroup.add(screenDisplay);
+
+            screenLidGroup.rotation.x = -Math.PI * 0.12;
+            laptopMeshGroup.add(screenLidGroup);
+            scene.add(laptopMeshGroup);
+        }
+
+        /* Hardware Device */
+        let oledCanvas, oledContext, oledTexture;
+
+        function buildFiveFlowHardwareDevice() {
+            deviceMeshGroup = new THREE.Group();
+            deviceMeshGroup.position.set(2.2, 0, 0.5);
+
+            const caseGeo = new THREE.BoxGeometry(1.6, 0.85, 1.6);
+            const caseMat = new THREE.MeshStandardMaterial({ color: 0x3d3222, roughness: 0.35, metalness: 0.7 });
+            const caseMesh = new THREE.Mesh(caseGeo, caseMat);
+            caseMesh.position.y = 0.425;
+            caseMesh.castShadow = true;
+            caseMesh.name = "fiveflow_device";
+            deviceMeshGroup.add(caseMesh);
+
+            // Logo Badge
+            const logoCanvas = document.createElement('canvas');
+            logoCanvas.width = 512; logoCanvas.height = 256;
+            const lCtx = logoCanvas.getContext('2d');
+            lCtx.fillStyle = '#261f15'; lCtx.fillRect(0,0,512,256);
+            lCtx.fillStyle = '#f59e0b'; lCtx.font = 'bold 60px sans-serif'; lCtx.textAlign = 'center';
+            lCtx.fillText('🌴 5Flow', 256, 120);
+            lCtx.fillStyle = '#cbd5e1'; lCtx.font = 'bold 28px sans-serif';
+            lCtx.fillText('AI HARDWARE COMPANION', 256, 180);
+
+            const logoTex = new THREE.CanvasTexture(logoCanvas);
+            const logoMat = new THREE.MeshStandardMaterial({ map: logoTex, roughness: 0.4 });
+            const logoMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.55), logoMat);
+            logoMesh.position.set(0, 0.425, 0.805);
+            deviceMeshGroup.add(logoMesh);
+
+            // OLED Top Screen
+            oledCanvas = document.createElement('canvas');
+            oledCanvas.width = 512; oledCanvas.height = 384;
+            oledContext = oledCanvas.getContext('2d');
+            updateDeviceOledCanvas();
+
+            oledTexture = new THREE.CanvasTexture(oledCanvas);
+            const oledMat = new THREE.MeshBasicMaterial({ map: oledTexture });
+            const oledMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.85), oledMat);
+            oledMesh.position.set(0, 0.855, -0.1);
+            oledMesh.rotation.x = -Math.PI / 2;
+            deviceMeshGroup.add(oledMesh);
+
+            // Perimeter LED Light Strip Around Hardware Box
+            const stripGeo = new THREE.BoxGeometry(1.68, 0.1, 1.68);
+            const stripMat = new THREE.MeshBasicMaterial({ color: APP_STATE.ledColorHex });
+            ledStripMesh = new THREE.Mesh(stripGeo, stripMat);
+            ledStripMesh.position.set(0, 0.1, 0);
+            deviceMeshGroup.add(ledStripMesh);
+
+            ledStripLight = new THREE.PointLight(APP_STATE.ledColorHex, 2.0, 3.5);
+            ledStripLight.position.set(0, 0.15, 0);
+            deviceMeshGroup.add(ledStripLight);
+
+            scene.add(deviceMeshGroup);
+        }
+
+        /* USB-C Cable connecting Hardware -> Laptop */
+        function buildUSBConnectionCable() {
+            const curve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(1.4, 0.12, 0.5),   
+                new THREE.Vector3(0.8, 0.04, 0.75),  
+                new THREE.Vector3(0.1, 0.04, 0.65),
+                new THREE.Vector3(-0.01, 0.1, 0.5)   
+            ]);
+
+            const tubeGeo = new THREE.TubeGeometry(curve, 40, 0.035, 10, false);
+            const tubeMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.3 });
+            const cableMesh = new THREE.Mesh(tubeGeo, tubeMat);
+            cableMesh.castShadow = true;
+            scene.add(cableMesh);
+
+            const plugGeo = new THREE.BoxGeometry(0.12, 0.06, 0.22);
+            const plugMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8, roughness: 0.2 });
+            
+            const plug1 = new THREE.Mesh(plugGeo, plugMat);
+            plug1.position.set(1.4, 0.12, 0.5);
+            scene.add(plug1);
+
+            const plug2 = new THREE.Mesh(plugGeo, plugMat);
+            plug2.position.set(-0.01, 0.1, 0.5);
+            plug2.rotation.y = Math.PI / 2;
+            scene.add(plug2);
+        }
+
+        /* Dynamic Device OLED Render */
+        function updateDeviceOledCanvas() {
+            if (!oledContext) return;
+            const ctx = oledContext;
+            const mode = MODES[APP_STATE.currentMode];
+
+            ctx.fillStyle = '#050811'; ctx.fillRect(0, 0, 512, 384);
+
+            const hexStr = mode.colorHex ? '#' + mode.colorHex.toString(16).padStart(6, '0') : '#10b981';
+            ctx.fillStyle = hexStr;
+            ctx.fillRect(0, 0, 512, 16);
+
+            ctx.font = 'bold 36px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(mode.badgeText, 256, 75);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 50px monospace';
+            ctx.fillText(mode.timer, 256, 175);
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'bold 22px sans-serif';
+            ctx.fillText(mode.sub, 256, 250);
+
+            ctx.fillStyle = '#1e293b'; ctx.fillRect(0, 320, 512, 64);
+            ctx.fillStyle = '#f8fafc'; ctx.font = 'bold 22px sans-serif';
+            ctx.fillText('5Flow • Connected over USB Cable', 256, 360);
+
+            if (oledTexture) oledTexture.needsUpdate = true;
+        }
+
+        /* Update Laptop Interactive UI Canvas */
+        function updateLaptopScreenCanvas() {
+            if (!screenContext) return;
+            const ctx = screenContext;
+            const mode = MODES[APP_STATE.currentMode];
+
+            ctx.fillStyle = '#080d1a'; ctx.fillRect(0, 0, 1024, 680);
+
+            // Laptop Header
+            ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, 1024, 70);
+            ctx.fillStyle = '#10b981'; ctx.font = 'bold 28px sans-serif'; ctx.textAlign = 'left';
+            ctx.fillText('FiveFlow Planner App', 40, 45);
+
+            // Clickable Mode Tabs
+            const modeKeys = ['focus', 'prayer_break', 'adhkar', 'prayer_reminder'];
+            const colors = ['#10b981', '#f59e0b', '#a855f7', '#3b82f6'];
+            const tabLabels = ['Focus', 'Prayer Break', 'Adhkar', 'Reminder'];
+
+            let tabX = 450;
+            modeKeys.forEach((mKey, idx) => {
+                ctx.fillStyle = APP_STATE.currentMode === mKey ? colors[idx] : '#1e293b';
+                ctx.beginPath();
+                ctx.roundRect(tabX, 15, 125, 40, 8);
+                ctx.fill();
+
+                ctx.fillStyle = APP_STATE.currentMode === mKey ? '#000' : '#cbd5e1';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(tabLabels[idx], tabX + 62, 40);
+                tabX += 135;
+            });
+
+            // Active Mode Banner
+            ctx.textAlign = 'left';
+            ctx.fillStyle = mode.colorHex ? '#' + mode.colorHex.toString(16).padStart(6, '0') : '#10b981';
+            ctx.font = 'bold 30px sans-serif';
+            ctx.fillText(`PLANNER DISPLAY: ${mode.name.toUpperCase()}`, 40, 125);
+
+            // Render Schedule Cards onto 3D laptop screen
+            let yPos = 160;
+            if (APP_STATE.schedule.length === 0) {
+                ctx.fillStyle = '#475569'; ctx.font = 'bold 24px sans-serif';
+                ctx.fillText('No tasks scheduled. Speak or type to add tasks!', 40, 240);
+            } else {
+                APP_STATE.schedule.forEach((item) => {
+                    const isCompleted = item.status === 'completed';
+                    ctx.fillStyle = isCompleted ? '#091322' : (item.status === 'active' ? '#1e293b' : '#0f172a');
+                    ctx.beginPath();
+                    ctx.roundRect(40, yPos, 944, 85, 16);
+                    ctx.fill();
+
+                    if (item.status === 'active') {
+                        ctx.strokeStyle = mode.colorHex ? '#' + mode.colorHex.toString(16).padStart(6, '0') : '#10b981';
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                    }
+
+                    // Task Checkbox Circle
+                    ctx.fillStyle = isCompleted ? '#10b981' : '#334155';
+                    ctx.beginPath(); ctx.arc(75, yPos + 42, 16, 0, Math.PI * 2); ctx.fill();
+
+                    ctx.fillStyle = isCompleted ? '#94a3b8' : '#38bdf8'; ctx.font = 'bold 26px monospace';
+                    ctx.fillText(item.time, 115, yPos + 51);
+
+                    ctx.fillStyle = isCompleted ? '#64748b' : '#f1f5f9'; ctx.font = 'bold 24px sans-serif';
+                    ctx.fillText(item.task, 240, yPos + 51);
+
+                    if (item.fixed) {
+                        ctx.fillStyle = '#f59e0b';
+                        ctx.beginPath(); ctx.roundRect(830, yPos + 22, 120, 40, 10); ctx.fill();
+                        ctx.fillStyle = '#000000'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center';
+                        ctx.fillText('FIXED', 890, yPos + 48);
+                        ctx.textAlign = 'left';
+                    }
+                    yPos += 100;
+                });
+            }
+
+            // Footer Status
+            ctx.fillStyle = '#1e1b4b';
+            ctx.beginPath(); ctx.roundRect(40, 580, 944, 65, 16); ctx.fill();
+            ctx.fillStyle = '#a78bfa'; ctx.font = 'bold 20px sans-serif';
+            ctx.fillText(`💬 ${mode.sub}`, 70, 620);
+
+            if (screenTexture) screenTexture.needsUpdate = true;
+        }
+
+        /* =========================================================================
+           SPEECH RECOGNITION & GEMINI AI INTEGRATION
+           ========================================================================= */
+        let recognition = null;
+
+        function toggleVoicePlannerListening() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+            if (!SpeechRecognition) {
+                const manualText = prompt("Speech Recognition API is not available on this browser. Type your task dump below:");
+                if (manualText) processVoiceTasksWithGemini(manualText);
+                return;
+            }
+
+            if (APP_STATE.isListening) {
+                stopListening();
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            const transcriptBox = document.getElementById('speech-transcript-box');
+            const micLabel = document.getElementById('mic-btn-label');
+            const micIcon = document.getElementById('mic-icon');
+
+            transcriptBox.classList.remove('hidden');
+            transcriptBox.innerText = "Listening... Speak naturally (e.g. 'Study 2 hours, swimming for 1 hour, and doctor at 4 PM')";
+            micLabel.innerText = "Stop Listening";
+            micIcon.className = "fa-solid fa-stop-circle text-red-400 animate-spin";
+
+            APP_STATE.isListening = true;
+
+            recognition.onresult = (event) => {
+                let currentTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    currentTranscript += event.results[i][0].transcript;
+                }
+                transcriptBox.innerText = `"${currentTranscript}"`;
+            };
+
+            recognition.onend = () => {
+                const finalSpeech = transcriptBox.innerText.replace(/"/g, '');
+                stopListening();
+
+                if (finalSpeech && !finalSpeech.includes("Listening...")) {
+                    processVoiceTasksWithGemini(finalSpeech);
+                }
+            };
+
+            recognition.onerror = (event) => {
+                if (event.error !== 'no-speech' && event.error !== 'aborted') {
+                    console.warn("Speech recognition event:", event.error || "Event triggered");
+                }
+                stopListening();
+            };
+
+            recognition.start();
+        }
+
+        function simulateDemoBrainDump() {
+            const transcriptBox = document.getElementById('speech-transcript-box');
+            transcriptBox.classList.remove('hidden');
+            const demoSpoken = "My study assignment took 3 hours instead of 1. Reshuffle my groceries and swimming, but my 4 PM appointment stays fixed!";
+            transcriptBox.innerText = `"${demoSpoken}"`;
+            processVoiceTasksWithGemini(demoSpoken);
+        }
+
+        function stopListening() {
+            APP_STATE.isListening = false;
+            if (recognition) {
+                try {
+                    recognition.stop();
+                } catch(e) {
+                    // Ignore if already stopped
+                }
+            }
+
+            const micLabel = document.getElementById('mic-btn-label');
+            const micIcon = document.getElementById('mic-icon');
+
+            micLabel.innerText = "🎙️ Speak Brain-Dump";
+            micIcon.className = "fa-solid fa-microphone";
+        }
+
+        /* Gemini AI Call to generate adaptive schedule */
+        async function processVoiceTasksWithGemini(userSpokenText) {
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+            const systemPrompt = `You are FiveFlow, a voice-first AI planner.
+Extract tasks, durations, and fixed commitments. Structure a realistic timeline for today.
+Return ONLY a JSON object matching this schema:
+{
+  "spokenExplanation": "1-2 sentence gentle explanation of the plan.",
+  "tasks": [
+    {
+      "id": 1,
+      "time": "HH:MM",
+      "task": "Task name",
+      "duration": "XXm or Xh",
+      "status": "active" | "pending",
+      "fixed": true | false
+    }
+  ]
+}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: `User input: "${userSpokenText}". Create an organized schedule.` }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] }
+                    })
+                });
+
+                const data = await response.json();
+                const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (aiText) {
+                    try {
+                        const cleanJson = aiText.replace(/```json/gi, '').replace(/```/g, '').trim();
+                        const parsedData = JSON.parse(cleanJson);
+
+                        if (parsedData.tasks && Array.isArray(parsedData.tasks) && parsedData.tasks.length > 0) {
+                            APP_STATE.schedule = parsedData.tasks.map((t, i) => ({ ...t, id: t.id || Date.now() + i }));
+                        }
+
+                        const textToSpeak = parsedData.spokenExplanation || "I have updated your schedule!";
+                        
+                        setSystemMode('focus');
+                        updateLaptopScreenCanvas();
+                        renderScheduleUI();
+                        speakMessage(textToSpeak);
+                    } catch (e) {
+                        applyFallbackTasks(userSpokenText);
+                    }
+                } else {
+                    applyFallbackTasks(userSpokenText);
+                }
+            } catch (err) {
+                applyFallbackTasks(userSpokenText);
+            }
+        }
+
+        function applyFallbackTasks(userText) {
+            const lower = userText.toLowerCase();
+            let studyDuration = '90m';
+            let mainMessage = "That took longer than expected. I've updated your plan!";
+
+            if (lower.includes('3 hour') || lower.includes('3h')) {
+                studyDuration = '180m';
+                mainMessage = "That assignment took 3 hours instead of 1. I've adjusted your groceries and swimming while keeping your 4 PM appointment fixed.";
+            }
+
+            APP_STATE.schedule = [
+                { id: Date.now(), time: '09:00', task: userText.length > 25 ? userText.substring(0, 25) + '...' : userText, duration: studyDuration, status: 'active', fixed: false },
+                { id: Date.now() + 1, time: '12:00', task: 'Groceries & Lunch', duration: '30m', status: 'pending', fixed: false },
+                { id: Date.now() + 2, time: '13:00', task: 'Swimming Session', duration: '60m', status: 'pending', fixed: false },
+                { id: Date.now() + 3, time: '16:00', task: 'Appointment / Commitment', duration: '45m', status: 'pending', fixed: true }
+            ];
+            setSystemMode('focus');
+            updateLaptopScreenCanvas();
+            renderScheduleUI();
+            speakMessage(mainMessage);
+        }
+
+        function submitTextBrainDump() {
+            const inputEl = document.getElementById('text-brain-dump-input');
+            const userText = inputEl.value.trim();
+            if (!userText) return;
+
+            const transcriptBox = document.getElementById('speech-transcript-box');
+            transcriptBox.classList.remove('hidden');
+            transcriptBox.innerText = `"${userText}"`;
+            
+            inputEl.value = '';
+            processVoiceTasksWithGemini(userText);
+        }
+
+        /* System Mode Setter */
+        function setSystemMode(modeKey) {
+            if (!MODES[modeKey]) return;
+
+            APP_STATE.currentMode = modeKey;
+            const mode = MODES[modeKey];
+
+            document.getElementById('badge-text').innerText = mode.badgeText;
+            document.getElementById('active-mode-badge').className = `px-2 py-0.5 rounded-full text-[10px] font-bold ${mode.badgeBg} flex items-center gap-1`;
+
+            const card = document.getElementById('device-card-container');
+            card.className = `rounded-2xl p-4 bg-slate-950/90 border ${mode.cardBorder} ${mode.cardGlow} transition-all duration-500 relative`;
+
+            document.getElementById('oled-title').innerText = mode.title;
+            document.getElementById('oled-timer').innerText = mode.timer;
+            document.getElementById('oled-sub').innerText = mode.sub;
+
+            document.querySelectorAll('.nav-mode-btn').forEach(btn => {
+                btn.className = "nav-mode-btn text-xs font-medium text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5";
+            });
+            const activeNav = document.getElementById(`nav-btn-${modeKey}`);
+            if (activeNav) {
+                activeNav.className = `nav-mode-btn text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${mode.badgeBg} flex items-center gap-1.5`;
+            }
+
+            updateHardwareLEDs(mode.colorHex);
+            updateDeviceOledCanvas();
+            updateLaptopScreenCanvas();
+            renderScheduleUI();
+            speakMessage(mode.speech);
+        }
+
+        function updateHardwareLEDs(hexColor) {
+            APP_STATE.ledColorHex = hexColor;
+            if (ledStripMesh) ledStripMesh.material.color.setHex(hexColor);
+            if (ledStripLight) ledStripLight.color.setHex(hexColor);
+        }
+
+        /* Render Interactive Side Panel Schedule */
+        function renderScheduleUI() {
+            const container = document.getElementById('schedule-list');
+            const badge = document.getElementById('task-count-badge');
+            if (!container) return;
+
+            if (badge) badge.innerText = `${APP_STATE.schedule.length} Task${APP_STATE.schedule.length === 1 ? '' : 's'}`;
+
+            if (APP_STATE.schedule.length === 0) {
+                container.innerHTML = `<div class="p-4 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-xl">No tasks in schedule. Type or speak your brain dump!</div>`;
+                return;
+            }
+
+            container.innerHTML = APP_STATE.schedule.map(item => {
+                const isCompleted = item.status === 'completed';
+                const isActive = item.status === 'active';
+
+                return `
+                <div class="p-3 rounded-xl transition-all ${isActive ? 'bg-indigo-950/70 border border-indigo-500/50 shadow-md' : (isCompleted ? 'bg-slate-950/40 border border-slate-900 opacity-60' : 'bg-slate-900/80 border border-slate-800')} flex items-center justify-between group">
+                    <div class="flex items-center gap-3">
+                        <button onclick="toggleTaskStatus(${item.id})" class="w-5 h-5 rounded-full flex items-center justify-center border ${isCompleted ? 'bg-emerald-500 border-emerald-400 text-slate-950' : (isActive ? 'border-indigo-400 bg-indigo-500/20 text-indigo-300' : 'border-slate-700 hover:border-slate-500 text-transparent')} transition">
+                            <i class="fa-solid fa-check text-[10px]"></i>
+                        </button>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-mono ${isActive ? 'text-indigo-300 font-bold' : 'text-slate-400'} text-[11px]">${item.time}</span>
+                                <span class="text-xs font-semibold ${isCompleted ? 'line-through text-slate-500' : 'text-slate-100'}">${item.task}</span>
+                            </div>
+                            <div class="text-[10px] text-slate-500 font-mono flex items-center gap-2 mt-0.5">
+                                <span>Est: ${item.duration}</span>
+                                <span>•</span>
+                                <span class="capitalize">${item.status}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        ${item.fixed ? '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">FIXED</span>' : ''}
+                        <button onclick="deleteTask(${item.id})" class="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-red-400 transition" title="Delete Task">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        function speakMessage(text) {
+            if (!APP_STATE.speechEnabled || !('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0; utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function toggleVoiceSpeech() {
+            APP_STATE.speechEnabled = !APP_STATE.speechEnabled;
+            const statusText = document.getElementById('speech-status-text');
+            const icon = document.getElementById('speech-icon');
+
+            if (APP_STATE.speechEnabled) {
+                statusText.innerText = 'Voice On';
+                icon.className = 'fa-solid fa-volume-high text-emerald-400';
+                speakMessage('Voice feedback enabled.');
+            } else {
+                statusText.innerText = 'Voice Off';
+                icon.className = 'fa-solid fa-volume-xmark text-slate-500';
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        function setCameraPreset(view) {
+            if (!controls) return;
+            if (view === 'isometric') {
+                camera.position.set(0, 4.2, 7.2);
+                controls.target.set(0, 0.8, 0);
+            } else if (view === 'device') {
+                camera.position.set(2.2, 2.2, 3.2);
+                controls.target.set(2.2, 0.5, 0.5);
+            } else if (view === 'laptop') {
+                camera.position.set(-1.8, 2.0, 3.0);
+                controls.target.set(-1.8, 1.1, 0);
+            }
+            controls.update();
+        }
+
+        function resetCameraView() { setCameraPreset('isometric'); }
+
+        function onCanvasClick(event) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            if (intersects.length > 0) {
+                const clickedObj = intersects[0].object;
+
+                if (clickedObj.name === 'fiveflow_device' || clickedObj.name === 'interactive_screen') {
+                    const modesList = ['focus', 'prayer_break', 'adhkar', 'prayer_reminder'];
+                    const nextIdx = (modesList.indexOf(APP_STATE.currentMode) + 1) % modesList.length;
+                    setSystemMode(modesList[nextIdx]);
+                }
+            }
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            if (!container) return;
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (ledStripLight) {
+                ledStripLight.intensity = 1.8 + Math.sin(Date.now() * 0.003) * 0.4;
+            }
+            if (controls) controls.update();
+            if (renderer && scene && camera) renderer.render(scene, camera);
+        }
+
+        window.onload = function() {
+            init3D();
+            setSystemMode('focus');
+            renderScheduleUI();
+        };
+    </script>
+</body>
+</html>
